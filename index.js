@@ -1,10 +1,15 @@
+require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan')
 const bodyParser = require('body-parser')
 const cors = require('cors')
+const mongoose = require('mongoose')
+const Person = require('./models/person')
+
 
 const app = express()
 
+//Middleware Configuration
 app.use(cors())
 app.use(express.static('dist'))
 app.use(express.json())
@@ -16,8 +21,32 @@ morgan.token('req-body', (req, res) => {
 });
 
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms - :req-body'));
+//
 
+//Database Configration
+/* const password = process.argv[2]
 
+const url = `mongodb+srv://izzimars:${password}@cluster0.daqtxva.mongodb.net/personApp?retryWrites=true&w=majority`
+
+mongoose.set('strictQuery', false)
+
+mongoose.connect(url)
+
+const personSchema = new mongoose.Schema({
+    name: String,
+    number: String,
+})
+
+const Person = mongoose.model('Person', personSchema)
+
+personSchema.set('toJSON', {
+    transform: (document, returnedObject) => {
+        returnedObject.id = returnedObject._id.toString()
+        delete returnedObject._id
+        delete returnedObject.__v
+    }
+}) */
+//
 let persons = [
     {
         "id": 1,
@@ -46,23 +75,24 @@ app.get('/', (request, response) => {
 })
 
 app.get('/api/persons', (request, response) => {
-    response.json(persons)
+    //response.json(persons)
+    Person.find({}).then(person => {
+        response.json(person)
+    })
 })
 
 app.get('/api/persons/:id', (request, response) => {
-    let id = request.params.id
-    console.log(id)
-    let person = persons.filter(i => {
-        console.log(i, i.id, id)
-        return (Number(i.id) === Number(id))
+    Person.findById(request.params.id).then(note => {
+        response.json(note)
     })
-    console.log(person)
+    /* let id = request.params.id
+    let person = persons.filter(i => Number(i.id) === Number(id))
     if (person.length > 0) {
         response.json(person)
     }
     else {
         response.status(404).end()
-    }
+    } */
 })
 
 app.get('/info', (request, response) => {
@@ -73,13 +103,14 @@ app.get('/info', (request, response) => {
 
 app.post('/api/persons', (request, response) => {
     let body = request.body
-    if (!body.name || !body.number || persons.some(person => person.name === body.name)) {
-        if (persons.some(person => person.name === body.name)) {
+    //if (!body.name || !body.number || persons.some(person => person.name === body.name)) {
+    if (!body.name || !body.number) {
+        /* if (persons.some(person => person.name === body.name)) {
             return response.status(400).json({
                 error: 'Name already  exist'
             })
-        }
-        else if (!body.number) {
+        } */
+        if (!body.number) {
             return response.status(400).json({
                 error: 'number missing'
             })
@@ -88,11 +119,18 @@ app.post('/api/persons', (request, response) => {
             error: 'content missing'
         })
     }
+    const person = new Person({
+        name: body.name,
+        number: body.number,
+    })
+    person.save().then(savedPerson => {
+        response.json(savedPerson)
+    })
     //let id = Math.max(...persons.map(person => person.id))
-    let id = Math.floor(Math.random() * 500)
-    let person = { ...body, "id": (id + 3) }
-    persons.concat(person)
-    response.json(person)
+    /*     let id = Math.floor(Math.random() * 500)
+        let person = { ...body, "id": (id + 3) }
+        persons.concat(person)
+        response.json(person) */
 })
 app.delete('/api/persons/:id', (request, response) => {
     let id = request.params.id
@@ -106,8 +144,8 @@ const unknownEndpoint = (request, response) => {
 
 app.use(unknownEndpoint)
 
-console.log('Environment PORT:', process.env.PORT);
-const PORT = process.env.PORT || 3001
+
+const PORT = process.env.PORT
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
 })
